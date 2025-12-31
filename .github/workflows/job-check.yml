@@ -14,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      JOB_URL: "https://www.capitalonecareers.com/search-jobs" # 🔴 CHANGE ME
-      JOB_SELECTOR: "div.job-listing" # 🔴 CHANGE OR BLANK
+      JOB_URL: "https://www.capitalonecareers.com/search-jobs" # 🔴 CHANGE ME LATER
+      JOB_SELECTOR: "div.job-listing" # 🔴 PROBABLY NEEDS ADJUSTING
       JOB_SITE_NAME: "Capital One" # Optional label
 
     steps:
@@ -33,12 +33,27 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run job checker
+        id: run-check # 👈 add this line
         env:
           JOB_URL: ${{ env.JOB_URL }}
           JOB_SELECTOR: ${{ env.JOB_SELECTOR }}
           JOB_SITE_NAME: ${{ env.JOB_SITE_NAME }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }} # Optional
         run: python check_jobs.py
+
+      - name: Send email if new jobs detected
+        if: contains(steps.run-check.outputs.has_new, 'true')
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "New Capital One Job Posted!"
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          secure: true
+          html_body: ${{ steps.run-check.outputs.email_body }}
 
       - name: Commit updated state (if any)
         run: |
@@ -48,6 +63,6 @@ jobs:
             git add jobs_seen.json
             git commit -m "Update seen jobs [skip ci]"
             git push
-          else
+          else:
             echo "No changes to commit."
           fi

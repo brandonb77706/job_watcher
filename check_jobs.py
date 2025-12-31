@@ -1,4 +1,3 @@
-# check_jobs.py
 import os
 import json
 import hashlib
@@ -11,53 +10,56 @@ STATE_FILE = "jobs_seen.json"
 
 
 def load_seen_jobs():
+    """Load previously seen jobs from a local JSON file."""
     if not os.path.exists(STATE_FILE):
         return {}
     try:
         with open(STATE_FILE, "r") as f:
             return json.load(f)
     except Exception:
+        # If file is corrupted or unreadable, start fresh
         return {}
 
 
 def save_seen_jobs(seen):
+    """Save seen jobs to a local JSON file."""
     with open(STATE_FILE, "w") as f:
         json.dump(seen, f, indent=2)
 
 
-def fetch_jobs(url: str, selector: str | None = None):
+def fetch_jobs(url, selector=None):
     """
-    Returns a list of job dicts: {"id": str, "title": str, "link": str}
+    Fetch job listings from a page.
+
+    Returns a list of dicts: {"id": str, "title": str, "link": str}
     """
     resp = requests.get(url, timeout=20)
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
-    jobs = []
 
     if selector:
         elements = soup.select(selector)
     else:
-        # Fallback: any link containing 'job' in its href
+        # Fallback: any link that looks job-ish
         elements = soup.find_all("a", href=True)
         elements = [a for a in elements if "job" in a["href"].lower()]
 
-    base = resp.url  # in case of redirects
+    jobs = []
+    base = resp.url  # handle redirects
 
     for el in elements:
-        # Try to get title
         text = el.get_text(strip=True)
         if not text:
             continue
 
-        # Try to get link
-        link = el.get("href") or ""
-        if link.startswith("#"):
-            # skip purely anchor links
+        href = el.get("href") or ""
+        if not href or href.startswith("#"):
             continue
-        link = urljoin(base, link)
 
-        # Create a stable ID from title+link
+        link = urljoin(base, href)
+
+        # Create stable ID based on title+link
         raw_id = f"{text}|{link}"
         job_id = hashlib.sha256(raw_id.encode("utf-8")).hexdigest()[:16]
 
@@ -72,8 +74,9 @@ def fetch_jobs(url: str, selector: str | None = None):
     return jobs
 
 
-def send_webhook_notification(webhook_url: str, site_name: str, new_jobs: list[dict]):
-    if not new_jobs:
+def send_webhook_notification(webhook_url, site_name, new_jobs):
+    """Optional: send a Discord-style webhook notification."""
+    if not webhook_url or not new_jobs:
         return
 
     lines = [f"📢 New job(s) detected on **{site_name}**:"]
@@ -81,8 +84,8 @@ def send_webhook_notification(webhook_url: str, site_name: str, new_jobs: list[d
         lines.append(f"- [{job['title']}]({job['link']})")
 
     content = "\n".join(lines)
-
     payload = {"content": content}
+
     resp = requests.post(webhook_url, json=payload, timeout=15)
     resp.raise_for_status()
 
@@ -114,11 +117,22 @@ def main():
                 "link": job["link"],
             }
 
+    has_new = False
+    email_body = ""
+
     if new_jobs:
+        has_new = True
         print(f"🚀 Found {len(new_jobs)} new job(s):")
+
+        # Build HTML body for email
+        lines = [f"<h2>New job(s) on {site_name}</h2>", "<ul>"]
         for job in new_jobs:
             print(f"- {job['title']} | {job['link']}")
+            lines.append(f"<li><a href='{job['link']}'>{job['title']}</a></li>")
+        lines.append("</ul>")
+        email_body = "\n".join(lines)
 
+        # Optional: Discord / webhook
         if webhook_url:
             try:
                 send_webhook_notification(webhook_url, site_name, new_jobs)
@@ -130,6 +144,11 @@ def main():
 
     save_seen_jobs(seen)
     print("State updated and saved.")
+
+    # 🔥 Expose outputs for GitHub Actions
+    # (used by the email step in job-check.yml)
+    print(f"::set-output name=has_new::{str(has_new).lower()}")
+    print(f"::set-output name=email_body::{email_body}")
 
 
 if __name__ == "__main__":
