@@ -52,7 +52,9 @@ jobs:
           subject: "New Capital One Job Posted!"
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
-          secure: true
+          secure: auto
+          ignore_cert: false
+          connection_timeout: 30
           html_body: ${{ steps.run-check.outputs.email_body }}
 
       - name: Commit updated state (if any)
