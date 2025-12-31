@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      JOB_URL: "https://www.capitalonecareers.com/search-jobs" # 🔴 CHANGE ME LATER
-      JOB_SELECTOR: "div.job-listing" # 🔴 PROBABLY NEEDS ADJUSTING
-      JOB_SITE_NAME: "Capital One" # Optional label
+      JOB_URL: "https://www.capitalonecareers.com/search-jobs" # website to look at
+      JOB_SELECTOR: "a[href*='/job/']" #css selector for jobs
+      JOB_SITE_NAME: "Capital One Jobs"
 
     steps:
       - name: Checkout repo
