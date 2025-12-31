@@ -151,7 +151,10 @@ def main():
     if github_output:
         with open(github_output, "a") as f:
             f.write(f"has_new={str(has_new).lower()}\n")
-            f.write(f"email_body={email_body}\n")
+            # Use multiline format for email_body to handle special characters
+            f.write("email_body<<EOF\n")
+            f.write(f"{email_body}\n")
+            f.write("EOF\n")
     else:
         # Fallback for local testing
         print(f"has_new={str(has_new).lower()}")
