@@ -145,10 +145,17 @@ def main():
     save_seen_jobs(seen)
     print("State updated and saved.")
 
-    # 🔥 Expose outputs for GitHub Actions
+    # 🔥 Expose outputs for GitHub Actions using Environment Files
     # (used by the email step in job-check.yml)
-    print(f"::set-output name=has_new::{str(has_new).lower()}")
-    print(f"::set-output name=email_body::{email_body}")
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a") as f:
+            f.write(f"has_new={str(has_new).lower()}\n")
+            f.write(f"email_body={email_body}\n")
+    else:
+        # Fallback for local testing
+        print(f"has_new={str(has_new).lower()}")
+        print(f"email_body={email_body}")
 
 
 if __name__ == "__main__":
