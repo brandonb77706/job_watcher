@@ -1,4 +1,4 @@
-name: Job Watcher
+name: Internship Watcher
 
 on:
   schedule:
@@ -14,9 +14,80 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      JOB_URL: "https://www.capitalonecareers.com/search-jobs" # website to look at
-      JOB_SELECTOR: "a[href*='/job/']" #css selector for jobs
-      JOB_SITE_NAME: "Capital One Jobs"
+      # Multiple job sites configuration (JSON format)
+      JOB_SITES_CONFIG: |
+        [
+          {
+            "name": "Capital One Careers",
+            "url": "https://www.capitalonecareers.com/search-jobs",
+            "selector": "a[href*='/job/']"
+          },
+          {
+            "name": "Apple Careers",
+            "url": "https://jobs.apple.com/en-us/search?sort=newest&search=intern",
+            "selector": "a[data-automation-id='jobTitle']"
+          },
+          {
+            "name": "Snapchat Careers",
+            "url": "https://careers.snap.com/jobs",
+            "selector": "a[href*='/jobs/']"
+          },
+          {
+            "name": "Spotify Careers",
+            "url": "https://www.lifeatspotify.com/jobs",
+            "selector": "a[href*='/jobs/']"
+          },
+          {
+            "name": "Uber Careers",
+            "url": "https://www.uber.com/us/en/careers/list/",
+            "selector": "a[href*='/careers/list/']"
+          },
+          {
+            "name": "DoorDash Careers",
+            "url": "https://careers.doordash.com/jobs/",
+            "selector": "a[href*='/jobs/']"
+          },
+          {
+            "name": "Lyft Careers",
+            "url": "https://www.lyft.com/careers",
+            "selector": "a[href*='/careers/']"
+          },
+          {
+            "name": "Netflix Careers",
+            "url": "https://jobs.netflix.com/search",
+            "selector": "a[href*='/jobs/']"
+          },
+          {
+            "name": "Google Careers",
+            "url": "https://careers.google.com/jobs/results/",
+            "selector": "a[jsname='hSRGPd']"
+          },
+          {
+            "name": "American Express Careers",
+            "url": "https://careers.americanexpress.com/jobs",
+            "selector": "a[href*='/jobs/']"
+          },
+          {
+            "name": "Mastercard Careers",
+            "url": "https://careers.mastercard.com/us/en/search-results",
+            "selector": "a[href*='/job/']"
+          },
+          {
+            "name": "Discover Careers",
+            "url": "https://jobs.discover.com/search/",
+            "selector": "a[href*='/job/']"
+          },
+          {
+            "name": "PNC Bank Careers",
+            "url": "https://careers.pnc.com/global/en/search-results",
+            "selector": "a[href*='/job/']"
+          },
+          {
+            "name": "Fifth Third Bank Careers",
+            "url": "https://careers.53.com/jobs",
+            "selector": "a[href*='/jobs/']"
+          }
+        ]
 
     steps:
       - name: Checkout repo
@@ -32,16 +103,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run job checker
-        id: run-check # 👈 add this line
+      - name: Run internship checker
+        id: run-check
         env:
-          JOB_URL: ${{ env.JOB_URL }}
-          JOB_SELECTOR: ${{ env.JOB_SELECTOR }}
-          JOB_SITE_NAME: ${{ env.JOB_SITE_NAME }}
+          # Pass through job configuration
+          JOB_SITES_CONFIG: ${{ env.JOB_SITES_CONFIG }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }} # Optional
         run: python check_jobs.py
 
-      - name: Send email if new jobs detected
+      - name: Send email if new internships detected
         if: contains(steps.run-check.outputs.has_new, 'true')
         uses: dawidd6/action-send-mail@v3
         with:
@@ -49,7 +119,7 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "New Capital One Job Posted!"
+          subject: "🎉 New Internship Opportunities Found!"
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
           secure: auto
@@ -91,7 +161,7 @@ jobs:
             
             # Add and commit our changes
             git add jobs_seen.json
-            git commit -m "Update seen jobs [skip ci]" || {
+            git commit -m "Update seen internships [skip ci]" || {
               echo "Nothing to commit or commit failed"
               exit 0
             }
