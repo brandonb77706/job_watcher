@@ -60,16 +60,61 @@ jobs:
           if [[ -n "$(git status --porcelain)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add jobs_seen.json
-            git commit -m "Update seen jobs [skip ci]"
             
-            # Pull remote changes and merge before pushing
-            git fetch origin
-            if ! git push origin main; then
-              echo "Push failed, pulling and merging remote changes..."
-              git pull --no-rebase origin main
-              git push origin main
+            # Fetch latest changes first
+            git fetch origin main
+            
+            # Check if we're behind the remote
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse origin/main)
+            
+            if [ "$LOCAL" != "$REMOTE" ]; then
+              echo "Remote has new changes, rebasing..."
+              # Stash our changes
+              git stash push -m "Temporary stash for jobs_seen.json"
+              
+              # Pull latest changes
+              git pull --rebase origin main
+              
+              # Apply our stashed changes
+              if git stash list | grep -q "Temporary stash for jobs_seen.json"; then
+                if ! git stash pop; then
+                  echo "Merge conflict detected, resolving automatically..."
+                  # For jobs_seen.json, we typically want to keep the latest version with our additions
+                  git checkout --theirs jobs_seen.json 2>/dev/null || true
+                  git add jobs_seen.json
+                fi
+              fi
             fi
+            
+            # Add and commit our changes
+            git add jobs_seen.json
+            git commit -m "Update seen jobs [skip ci]" || {
+              echo "Nothing to commit or commit failed"
+              exit 0
+            }
+            
+            # Push with retry logic
+            for i in {1..3}; do
+              if git push origin main; then
+                echo "Successfully pushed changes"
+                break
+              else
+                echo "Push failed (attempt $i/3), fetching and retrying..."
+                git fetch origin main
+                git rebase origin/main || {
+                  git rebase --abort
+                  echo "Rebase failed, trying merge strategy..."
+                  git merge origin/main -X theirs --no-edit
+                }
+                sleep 2
+              fi
+              
+              if [ $i -eq 3 ]; then
+                echo "Failed to push after 3 attempts"
+                exit 1
+              fi
+            done
           else
             echo "No changes to commit."
           fi
