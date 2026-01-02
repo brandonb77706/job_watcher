@@ -2,8 +2,8 @@ name: Job Watcher
 
 on:
   schedule:
-    # Every hour — tweak as you like (UTC)
-    - cron: "0 * * * *"
+    # Every Sunday at midnight UTC (weekly)
+    - cron: "0 0 * * 0"
   workflow_dispatch: {}
 
 permissions:
@@ -112,7 +112,7 @@ jobs:
                 sleep 2
               fi
               
-              if [ $i -eq 3 ]; then
+              if [ $i -eq 3]; then
                 echo "Failed to push after 3 attempts"
                 exit 1
               fi
